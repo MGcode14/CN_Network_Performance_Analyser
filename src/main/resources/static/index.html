@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Performance Analyzer — TCP vs UDP</title>
+  <meta name="description" content="Professional client-server network performance testing laboratory analyzing TCP and UDP latency, throughput, jitter, and packet loss.">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/chart.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <div class="brand-title">
+        <h1>Network Performance Analyzer</h1>
+        <p>TCP &amp; UDP Empirical Protocol Benchmark Lab</p>
+      </div>
+    </div>
+
+    <div class="receiver-status-bar">
+      <div class="status-pill" id="tcpStatusPill">
+        <span class="status-dot online" id="tcpStatusDot"></span>
+        <span id="tcpStatusText">TCP :9091 [ONLINE]</span>
+      </div>
+      <div class="status-pill" id="udpStatusPill">
+        <span class="status-dot online" id="udpStatusDot"></span>
+        <span id="udpStatusText">UDP :9092 [ONLINE]</span>
+      </div>
+      <div class="status-pill">
+        <span class="status-dot online"></span>
+        <span>API :8080</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" id="startReceiversBtn" title="Start Local Receivers">Start Receivers</button>
+      <button class="btn btn-secondary btn-sm" id="stopReceiversBtn" title="Stop Local Receivers">Stop Receivers</button>
+      <button class="btn btn-secondary btn-sm" id="refreshAllBtn" title="Refresh Dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" aria-label="Dashboard Sections">
+      <button class="nav-tab active" data-tab="tab-live" id="navTabLive">Live Performance Lab</button>
+      <button class="nav-tab" data-tab="tab-comparison" id="navTabCompare">TCP vs UDP Comparison</button>
+      <button class="nav-tab" data-tab="tab-history" id="navTabHistory">Experiment History</button>
+      <button class="nav-tab" data-tab="tab-diagnostics" id="navTabDiag">Diagnostics &amp; System</button>
+    </nav>
+
+    <!-- TAB 1: LIVE PERFORMANCE LAB -->
+    <div class="tab-pane active" id="tab-live">
+      <div class="grid-top">
+
+        <!-- LEFT COLUMN: Test Configuration Form -->
+        <section class="card" aria-labelledby="configHeading">
+          <div class="card-title">
+            <h2 id="configHeading">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Test Configuration
+            </h2>
+          </div>
+
+          <div id="validationBox" class="validation-box"></div>
+
+          <form id="testConfigForm">
+            <div class="form-group">
+              <label for="targetHostInput">Target Host / IP Address</label>
+              <input type="text" id="targetHostInput" class="form-control" value="127.0.0.1" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" id="tcpPortGroup">
+                <label for="tcpPortInput">TCP Port</label>
+                <input type="number" id="tcpPortInput" class="form-control" value="9091" min="1" max="65535">
+              </div>
+              <div class="form-group" id="udpPortGroup">
+                <label for="udpPortInput">UDP Port</label>
+                <input type="number" id="udpPortInput" class="form-control" value="9092" min="1" max="65535">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="protocolSelect">Protocol</label>
+                <select id="protocolSelect" class="form-select">
+                  <option value="TCP" selected>TCP</option>
+                  <option value="UDP">UDP</option>
+                  <option value="BOTH">BOTH (Comparison)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="testModeSelect">Test Mode</label>
+                <select id="testModeSelect" class="form-select">
+                  <option value="RTT" selected>RTT Latency</option>
+                  <option value="BULK_TRANSFER">Bulk Throughput</option>
+                  <option value="PACKET_DELIVERY">Packet Delivery</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="payloadSizeInput">Payload Size (Bytes)</label>
+              <input type="number" id="payloadSizeInput" class="form-control" value="1024" min="0" max="10485760">
+              <div class="preset-buttons">
+                <button type="button" class="preset-btn" data-size="64">64 B</button>
+                <button type="button" class="preset-btn" data-size="512">512 B</button>
+                <button type="button" class="preset-btn active" data-size="1024">1 KB</button>
+                <button type="button" class="preset-btn" data-size="8192">8 KB</button>
+                <button type="button" class="preset-btn" data-size="32768">32 KB</button>
+                <button type="button" class="preset-btn" data-size="64000">64 KB</button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="packetCountInput">Packet / Request Count</label>
+                <input type="number" id="packetCountInput" class="form-control" value="100" min="1" max="500000">
+              </div>
+              <div class="form-group">
+                <label for="sendingRateInput">Sending Rate (PPS, 0=Max)</label>
+                <input type="number" id="sendingRateInput" class="form-control" value="0" min="0" max="100000">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="warmupInput">Warm-up Packets</label>
+                <input type="number" id="warmupInput" class="form-control" value="5" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label for="timeoutInput">Socket Timeout (ms)</label>
+                <input type="number" id="timeoutInput" class="form-control" value="5000" min="100" max="60000">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="linkCapacityInput">Link Capacity (Mbps, Optional)</label>
+              <input type="number" id="linkCapacityInput" class="form-control" placeholder="e.g. 100 or 1000 for Link %">
+            </div>
+
+            <div class="form-group" id="altOrderGroup" style="display:none;">
+              <label style="display:flex; align-items:center; gap:0.5rem; text-transform:none; cursor:pointer;">
+                <input type="checkbox" id="altOrderCheck">
+                <span>Run UDP before TCP (Alternating order)</span>
+              </label>
+            </div>
+
+            <div style="display:flex; gap:0.5rem; margin-top:1.25rem;">
+              <button type="submit" class="btn btn-primary" id="runTestBtn" style="flex:1;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Run Experiment
+              </button>
+              <button type="button" class="btn btn-danger" id="cancelTestBtn">Cancel</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- RIGHT COLUMN: Metrics & Charts -->
+        <div>
+          <!-- Live Active Progress Card -->
+          <div class="card progress-card" id="progressCard">
+            <div class="progress-header">
+              <span id="progressStatusMessage" style="color:var(--cyan-primary);">Initializing test...</span>
+              <span id="progressPercentText" style="color:var(--text-primary); font-weight:700;">0%</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+          </div>
+
+          <!-- Live Performance Metric Cards Grid -->
+          <div class="metric-cards-grid">
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Average RTT</span>
+                <span class="metric-icon">&#x23F1;</span>
+              </div>
+              <div class="metric-value cyan" id="cardAvgRtt">N/A</div>
+              <div class="metric-sub">Round-Trip Latency</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Throughput</span>
+                <span class="metric-icon">&#x26A1;</span>
+              </div>
+              <div class="metric-value blue" id="cardThroughput">N/A</div>
+              <div class="metric-sub" id="cardTransferRate">Payload Rate</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Packet Loss</span>
+                <span class="metric-icon">&#x26A0;</span>
+              </div>
+              <div class="metric-value rose" id="cardPacketLoss">N/A</div>
+              <div class="metric-sub" id="cardDeliveryRatio">Delivery Ratio</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Jitter Estimate</span>
+                <span class="metric-icon">&#x1F4C8;</span>
+              </div>
+              <div class="metric-value amber" id="cardJitter">N/A</div>
+              <div class="metric-sub">RTT Variation</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Duration</span>
+                <span class="metric-icon">&#x231B;</span>
+              </div>
+              <div class="metric-value green" id="cardDuration">N/A</div>
+              <div class="metric-sub">Transfer Time</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <span class="metric-title">Link Util</span>
+                <span class="metric-icon">&#x1F4CA;</span>
+              </div>
+              <div class="metric-value cyan" id="cardBandwidthUtil">N/A</div>
+              <div class="metric-sub">Capacity Utilization</div>
+            </div>
+          </div>
+
+          <!-- Performance Visualizations Charts Grid -->
+          <div class="charts-grid">
+            <div class="card">
+              <div class="card-title">
+                <h2>Round-Trip Time Over Time</h2>
+              </div>
+              <div class="chart-box">
+                <canvas id="rttChartCanvas"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">
+                <h2>Transfer Throughput Profile</h2>
+              </div>
+              <div class="chart-box">
+                <canvas id="throughputChartCanvas"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">
+                <h2>Protocol Comparison</h2>
+              </div>
+              <div class="chart-box">
+                <canvas id="comparisonChartCanvas"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">
+                <h2>Packet Delivery &amp; Loss</h2>
+              </div>
+              <div class="chart-box">
+                <canvas id="lossChartCanvas"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: TCP VS UDP COMPARISON -->
+    <div class="tab-pane" id="tab-comparison">
+      <div class="card">
+        <div class="card-title">
+          <h2>TCP versus UDP Empirical Head-to-Head Comparison</h2>
+        </div>
+
+        <div class="comparison-selection-grid">
+          <div class="form-group">
+            <label for="compareTcpSelect">Select TCP Experiment</label>
+            <select id="compareTcpSelect" class="form-select">
+              <option value="">No TCP experiments available</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="compareUdpSelect">Select UDP Experiment</label>
+            <select id="compareUdpSelect" class="form-select">
+              <option value="">No UDP experiments available</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:0.75rem;">
+          <button class="btn btn-primary" id="runCompareBtn">Compare Protocols</button>
+        </div>
+
+        <div id="comparisonResultsArea" class="comparison-table-wrapper" style="margin-top:1.5rem;">
+          <div style="text-align:center; padding: 2rem; color: var(--text-muted);">
+            Select completed TCP and UDP experiments above and click "Compare Protocols" to view comparative metrics, latency delta, throughput ratio, and automatic technical analysis.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: EXPERIMENT HISTORY -->
+    <div class="tab-pane" id="tab-history">
+      <div class="card">
+        <div class="card-title">
+          <h2>
+            Experiment History
+            <span id="historyTotalCount" style="font-size:0.75rem; color:var(--text-muted); font-weight:400; text-transform:none;"></span>
+          </h2>
+        </div>
+
+        <div class="history-controls">
+          <div style="flex:1; min-width:200px;">
+            <input type="text" id="historySearchInput" class="form-control" placeholder="Search target host, name, ID...">
+          </div>
+          <div style="width:140px;">
+            <select id="historyProtocolFilter" class="form-select">
+              <option value="ALL">Protocol: ALL</option>
+              <option value="TCP">TCP</option>
+              <option value="UDP">UDP</option>
+              <option value="BOTH">BOTH</option>
+            </select>
+          </div>
+          <div style="width:160px;">
+            <select id="historyModeFilter" class="form-select">
+              <option value="ALL">Mode: ALL</option>
+              <option value="RTT">RTT Latency</option>
+              <option value="BULK_TRANSFER">Bulk Throughput</option>
+              <option value="PACKET_DELIVERY">Packet Delivery</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Timestamp</th>
+                <th>Target</th>
+                <th>Protocol</th>
+                <th>Mode</th>
+                <th>Payload</th>
+                <th>Sent / Recv</th>
+                <th>Throughput</th>
+                <th>Avg RTT</th>
+                <th>Loss</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="12" style="text-align:center; padding:2rem; color:var(--text-muted);">Loading history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="historyPagination"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4: DIAGNOSTICS & SYSTEM -->
+    <div class="tab-pane" id="tab-diagnostics">
+      <div id="diagnosticsContent">
+        <div style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading diagnostics...</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Experiment Detail Modal -->
+  <div class="modal-backdrop" id="experimentDetailModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:1rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Experiment Details &amp; Sample Distribution</h3>
+        <button class="modal-close" onclick="window.closeExperimentModal()">&times;</button>
+      </div>
+      <div id="modalDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Boot Module Script -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
