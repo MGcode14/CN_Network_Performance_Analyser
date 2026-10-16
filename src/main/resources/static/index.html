@@ -37,6 +37,18 @@
         <span class="status-dot online"></span>
         <span>API :8080</span>
       </div>
+      <div class="status-pill" title="Total Experiments Recorded in Database">
+        <span style="font-size:0.75rem; color:var(--text-muted); margin-right:4px;">Tests:</span>
+        <span id="overviewTotalExp" style="font-weight:600; color:var(--text-primary);">0</span>
+      </div>
+      <div class="status-pill" title="Overall Average Throughput Across All Experiments">
+        <span style="font-size:0.75rem; color:var(--text-muted); margin-right:4px;">Avg T-put:</span>
+        <span id="overviewAvgThroughput" style="font-weight:600; color:var(--accent-teal);">N/A</span>
+      </div>
+      <div class="status-pill" title="Overall Average Round-Trip Time Across All Experiments">
+        <span style="font-size:0.75rem; color:var(--text-muted); margin-right:4px;">Avg RTT:</span>
+        <span id="overviewAvgRtt" style="font-weight:600; color:var(--accent-blue);">N/A</span>
+      </div>
     </div>
 
     <div class="header-actions">

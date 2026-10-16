@@ -213,8 +213,8 @@ async function handleTestSubmit(e) {
     showValidationError('Payload size cannot be negative.');
     return;
   }
-  if ((protocol === 'UDP' || protocol === 'BOTH') && payloadSize > 65507) {
-    showValidationError('UDP datagram payload size cannot exceed 65,507 bytes (IPv4 limit).');
+  if ((protocol === 'UDP' || protocol === 'BOTH') && payloadSize > 65463) {
+    showValidationError('UDP datagram payload size cannot exceed 65,463 bytes (accounting for 44-byte protocol header).');
     return;
   }
   if (isNaN(packetCount) || packetCount < 1) {

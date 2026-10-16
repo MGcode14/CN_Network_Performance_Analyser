@@ -71,10 +71,11 @@ public class UdpServer {
                     NetworkPacket packet = NetworkPacket.fromByteArray(datagram.getData(), datagram.getOffset(), datagram.getLength());
                     String testIdStr = packet.getTestIdString();
 
-                    UdpTestStats stats = testStatsMap.computeIfAbsent(testIdStr, UdpTestStats::new);
-                    stats.recordPacket(packet.getSequenceNumber(), packet.getPayloadLength(), packet.getTimestamp());
-
-                    if (packet.getMessageType() == MessageType.RTT_REQUEST) {
+                    if (packet.getMessageType() == MessageType.BULK_DATA) {
+                        pruneOldStats();
+                        UdpTestStats stats = testStatsMap.computeIfAbsent(testIdStr, UdpTestStats::new);
+                        stats.recordPacket(packet.getSequenceNumber(), packet.getPayloadLength(), packet.getTimestamp());
+                    } else if (packet.getMessageType() == MessageType.RTT_REQUEST) {
                         // Echo response back to sender
                         NetworkPacket response = NetworkPacket.create(
                                 MessageType.RTT_RESPONSE,
@@ -93,12 +94,18 @@ public class UdpServer {
                         datagramSocket.send(responseDatagram);
                         packetsSent.incrementAndGet();
                     } else if (packet.getMessageType() == MessageType.STATUS_QUERY) {
+                        UdpTestStats stats = testStatsMap.get(testIdStr);
+                        long totalRecv = stats != null ? stats.getTotalPacketsReceived() : 0L;
+                        long uniqueRecv = stats != null ? stats.getUniquePacketsReceived() : 0L;
+                        long duplicates = stats != null ? stats.getDuplicatePackets() : 0L;
+                        long outOfOrder = stats != null ? stats.getOutOfOrderPackets() : 0L;
+
                         // Return serialized stats
                         ByteBuffer buf = ByteBuffer.allocate(32);
-                        buf.putLong(stats.getTotalPacketsReceived());
-                        buf.putLong(stats.getUniquePacketsReceived());
-                        buf.putLong(stats.getDuplicatePackets());
-                        buf.putLong(stats.getOutOfOrderPackets());
+                        buf.putLong(totalRecv);
+                        buf.putLong(uniqueRecv);
+                        buf.putLong(duplicates);
+                        buf.putLong(outOfOrder);
 
                         NetworkPacket statusReply = NetworkPacket.create(
                                 MessageType.STATUS_REPLY,
@@ -152,7 +159,26 @@ public class UdpServer {
     }
 
     public void clearStats(String testId) {
-        testStatsMap.remove(testId);
+        if (testId != null) {
+            testStatsMap.remove(testId);
+        }
+    }
+
+    private void pruneOldStats() {
+        if (testStatsMap.size() > 100) {
+            long now = System.nanoTime();
+            testStatsMap.entrySet().removeIf(entry -> {
+                long elapsed = now - entry.getValue().getLastPacketNanos();
+                return elapsed > 300_000_000_000L; // 5 minutes
+            });
+            if (testStatsMap.size() > 150) {
+                var it = testStatsMap.keySet().iterator();
+                while (it.hasNext() && testStatsMap.size() > 50) {
+                    it.next();
+                    it.remove();
+                }
+            }
+        }
     }
 
     public boolean isRunning() { return running.get(); }

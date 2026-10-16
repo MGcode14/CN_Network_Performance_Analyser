@@ -116,10 +116,10 @@ public class TcpServer {
                 }
 
                 messagesProcessed.incrementAndGet();
-                clientPacketsReceived++;
-                clientBytesReceived += request.getPayloadLength();
 
                 if (request.getMessageType() == MessageType.RTT_REQUEST) {
+                    clientPacketsReceived++;
+                    clientBytesReceived += request.getPayloadLength();
                     // Echo back with matching testId, seqNum, timestamp, and optional payload
                     NetworkPacket response = NetworkPacket.create(
                             MessageType.RTT_RESPONSE,
@@ -130,6 +130,8 @@ public class TcpServer {
                     );
                     response.writeTo(dos);
                 } else if (request.getMessageType() == MessageType.BULK_DATA) {
+                    clientPacketsReceived++;
+                    clientBytesReceived += request.getPayloadLength();
                     // Bulk data packet - consume payload without immediate response
                 } else if (request.getMessageType() == MessageType.TERMINATE) {
                     // Client finished bulk transfer - respond with BULK_ACK

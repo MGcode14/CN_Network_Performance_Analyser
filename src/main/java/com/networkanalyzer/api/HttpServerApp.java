@@ -70,6 +70,7 @@ public class HttpServerApp {
     private class HealthHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -90,6 +91,7 @@ public class HttpServerApp {
     private class ServerStatusHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -102,6 +104,7 @@ public class HttpServerApp {
     private class ServerStartHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -119,6 +122,7 @@ public class HttpServerApp {
     private class ServerStopHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -132,6 +136,7 @@ public class HttpServerApp {
     private class TestsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             String path = exchange.getRequestURI().getPath();
             String method = exchange.getRequestMethod();
 
@@ -200,6 +205,7 @@ public class HttpServerApp {
     private class ComparisonsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -222,6 +228,7 @@ public class HttpServerApp {
     private class HistoryHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -250,6 +257,7 @@ public class HttpServerApp {
     private class MetricsSummaryHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -262,6 +270,7 @@ public class HttpServerApp {
     private class DiagnosticsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            if (isPreflight(exchange)) return;
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 sendMethodNotAllowed(exchange);
                 return;
@@ -338,6 +347,19 @@ public class HttpServerApp {
     }
 
     // --- Utility Methods ---
+
+    private boolean isPreflight(HttpExchange exchange) throws IOException {
+        if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+            exchange.getResponseHeaders().set("Access-Control-Max-Age", "86400");
+            exchange.sendResponseHeaders(204, -1);
+            exchange.close();
+            return true;
+        }
+        return false;
+    }
 
     private String readRequestBody(HttpExchange exchange) throws IOException {
         try (InputStream in = exchange.getRequestBody();

@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 echo ================================================================================
 echo    Stopping Network Performance Analyzer

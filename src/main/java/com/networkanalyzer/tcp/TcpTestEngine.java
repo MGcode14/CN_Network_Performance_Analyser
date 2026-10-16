@@ -56,16 +56,16 @@ public class TcpTestEngine {
         long startEpoch = System.currentTimeMillis();
         exp.setStartTimeMs(startEpoch);
 
-        try {
-            // Step 1: Measure Connection Setup Time
-            long connSetupStart = System.nanoTime();
-            Socket socket = new Socket();
+        // Step 1: Measure Connection Setup Time
+        long connSetupStart = System.nanoTime();
+
+        if (listener != null) {
+            listener.onProgress(testIdStr, 0, config.getPacketCount(), 0.0, "Establishing TCP connection to " + config.getTargetHost() + ":" + config.getTcpPort());
+        }
+
+        try (Socket socket = new Socket()) {
             socket.setTcpNoDelay(true);
             socket.setSoTimeout(config.getTimeoutMs());
-
-            if (listener != null) {
-                listener.onProgress(testIdStr, 0, config.getPacketCount(), 0.0, "Establishing TCP connection to " + config.getTargetHost() + ":" + config.getTcpPort());
-            }
 
             try {
                 socket.connect(new InetSocketAddress(config.getTargetHost(), config.getTcpPort()), config.getTimeoutMs());
@@ -78,8 +78,7 @@ public class TcpTestEngine {
             exp.setConnectionSetupTimeMs(connSetupMs);
             logger.info("TCP connection established in {} ms", connSetupMs);
 
-            try (socket;
-                 BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream(), 65536);
+            try (BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream(), 65536);
                  DataOutputStream dos = new DataOutputStream(bos);
                  BufferedInputStream bis = new BufferedInputStream(socket.getInputStream(), 65536);
                  DataInputStream dis = new DataInputStream(bis)) {

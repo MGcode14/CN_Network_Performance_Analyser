@@ -54,6 +54,13 @@ public class Application {
             System.out.println("  Database      : " + config.getDatabaseUrl());
             System.out.println("================================================================================");
 
+            // Keep main thread alive while service runs
+            try {
+                Thread.currentThread().join();
+            } catch (InterruptedException ignored) {
+                logger.info("Main thread interrupted, exiting.");
+            }
+
         } catch (Exception e) {
             logger.error("Failed to start application: {}", e.getMessage(), e);
             System.err.println("FATAL: Application failed to start: " + e.getMessage());

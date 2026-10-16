@@ -151,64 +151,78 @@ public class DatabaseManager {
 
         try (Connection conn = getConnection()) {
             conn.setAutoCommit(false);
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, exp.getId());
-                ps.setString(2, exp.getTestId());
-                ps.setString(3, exp.getName());
-                ps.setString(4, exp.getProtocol().name());
-                ps.setString(5, exp.getTestMode().name());
-                ps.setString(6, exp.getStatus().name());
-                ps.setString(7, exp.getTargetHost());
-                ps.setInt(8, exp.getTargetPort());
-                ps.setInt(9, exp.getPayloadSize());
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, exp.getId());
+                    ps.setString(2, exp.getTestId());
+                    ps.setString(3, exp.getName());
+                    ps.setString(4, exp.getProtocol().name());
+                    ps.setString(5, exp.getTestMode().name());
+                    ps.setString(6, exp.getStatus().name());
+                    ps.setString(7, exp.getTargetHost());
+                    ps.setInt(8, exp.getTargetPort());
+                    ps.setInt(9, exp.getPayloadSize());
 
-                setNullableDouble(ps, 10, exp.getConnectionSetupTimeMs());
-                setNullableLong(ps, 11, exp.getStartTimeMs());
-                setNullableLong(ps, 12, exp.getEndTimeMs());
-                setNullableDouble(ps, 13, exp.getDurationMs());
+                    setNullableDouble(ps, 10, exp.getConnectionSetupTimeMs());
+                    setNullableLong(ps, 11, exp.getStartTimeMs());
+                    setNullableLong(ps, 12, exp.getEndTimeMs());
+                    setNullableDouble(ps, 13, exp.getDurationMs());
 
-                setNullableLong(ps, 14, exp.getPacketsSent());
-                setNullableLong(ps, 15, exp.getPacketsReceived());
-                setNullableLong(ps, 16, exp.getBytesSent());
-                setNullableLong(ps, 17, exp.getBytesReceived());
+                    setNullableLong(ps, 14, exp.getPacketsSent());
+                    setNullableLong(ps, 15, exp.getPacketsReceived());
+                    setNullableLong(ps, 16, exp.getBytesSent());
+                    setNullableLong(ps, 17, exp.getBytesReceived());
 
-                setNullableDouble(ps, 18, exp.getThroughputMbps());
-                setNullableDouble(ps, 19, exp.getDataRateMBs());
-                setNullableDouble(ps, 20, exp.getAvgRttMs());
-                setNullableDouble(ps, 21, exp.getMinRttMs());
-                setNullableDouble(ps, 22, exp.getMaxRttMs());
-                setNullableDouble(ps, 23, exp.getMedianRttMs());
-                setNullableDouble(ps, 24, exp.getP95RttMs());
-                setNullableDouble(ps, 25, exp.getJitterMs());
-                setNullableDouble(ps, 26, exp.getPacketLossPct());
-                setNullableDouble(ps, 27, exp.getDeliveryRatioPct());
-                setNullableDouble(ps, 28, exp.getBandwidthUtilPct());
-                setNullableDouble(ps, 29, exp.getLinkCapacityMbps());
+                    setNullableDouble(ps, 18, exp.getThroughputMbps());
+                    setNullableDouble(ps, 19, exp.getDataRateMBs());
+                    setNullableDouble(ps, 20, exp.getAvgRttMs());
+                    setNullableDouble(ps, 21, exp.getMinRttMs());
+                    setNullableDouble(ps, 22, exp.getMaxRttMs());
+                    setNullableDouble(ps, 23, exp.getMedianRttMs());
+                    setNullableDouble(ps, 24, exp.getP95RttMs());
+                    setNullableDouble(ps, 25, exp.getJitterMs());
+                    setNullableDouble(ps, 26, exp.getPacketLossPct());
+                    setNullableDouble(ps, 27, exp.getDeliveryRatioPct());
+                    setNullableDouble(ps, 28, exp.getBandwidthUtilPct());
+                    setNullableDouble(ps, 29, exp.getLinkCapacityMbps());
 
-                ps.setString(30, exp.getErrorMessage());
-                ps.setString(31, exp.getConfig() != null ? gson.toJson(exp.getConfig()) : null);
-                ps.setLong(32, exp.getCreatedAt());
+                    ps.setString(30, exp.getErrorMessage());
+                    ps.setString(31, exp.getConfig() != null ? gson.toJson(exp.getConfig()) : null);
+                    ps.setLong(32, exp.getCreatedAt());
 
-                ps.executeUpdate();
-            }
-
-            // Save samples
-            if (exp.getSamples() != null && !exp.getSamples().isEmpty()) {
-                String sampleSql = "INSERT INTO measurement_samples (experiment_id, sample_seq, rtt_ms, instant_throughput_mbps, timestamp_ms) VALUES (?, ?, ?, ?, ?)";
-                try (PreparedStatement psSample = conn.prepareStatement(sampleSql)) {
-                    for (MeasurementSample s : exp.getSamples()) {
-                        psSample.setString(1, exp.getId());
-                        psSample.setLong(2, s.getSampleSeq());
-                        setNullableDouble(psSample, 3, s.getRttMs());
-                        setNullableDouble(psSample, 4, s.getInstantThroughputMbps());
-                        psSample.setLong(5, s.getTimestampMs());
-                        psSample.addBatch();
-                    }
-                    psSample.executeBatch();
+                    ps.executeUpdate();
                 }
-            }
 
-            conn.commit();
+                // Save samples
+                if (exp.getSamples() != null && !exp.getSamples().isEmpty()) {
+                    try (PreparedStatement psDel = conn.prepareStatement("DELETE FROM measurement_samples WHERE experiment_id = ?")) {
+                        psDel.setString(1, exp.getId());
+                        psDel.executeUpdate();
+                    }
+
+                    String sampleSql = "INSERT INTO measurement_samples (experiment_id, sample_seq, rtt_ms, instant_throughput_mbps, timestamp_ms) VALUES (?, ?, ?, ?, ?)";
+                    try (PreparedStatement psSample = conn.prepareStatement(sampleSql)) {
+                        for (MeasurementSample s : exp.getSamples()) {
+                            psSample.setString(1, exp.getId());
+                            psSample.setLong(2, s.getSampleSeq());
+                            setNullableDouble(psSample, 3, s.getRttMs());
+                            setNullableDouble(psSample, 4, s.getInstantThroughputMbps());
+                            psSample.setLong(5, s.getTimestampMs());
+                            psSample.addBatch();
+                        }
+                        psSample.executeBatch();
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException ex) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rbEx) {
+                    logger.debug("Rollback error: {}", rbEx.getMessage());
+                }
+                throw ex;
+            }
             logger.debug("Saved experiment {} ({}) to database", exp.getId(), exp.getName());
         } catch (SQLException e) {
             logger.error("Failed to save experiment {}: {}", exp.getId(), e.getMessage(), e);
@@ -379,7 +393,11 @@ public class DatabaseManager {
                 SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed_count,
                 AVG(CASE WHEN status = 'COMPLETED' AND avg_rtt_ms IS NOT NULL THEN avg_rtt_ms END) as overall_avg_rtt,
                 AVG(CASE WHEN status = 'COMPLETED' AND throughput_mbps IS NOT NULL THEN throughput_mbps END) as overall_avg_throughput,
-                AVG(CASE WHEN status = 'COMPLETED' AND packet_loss_pct IS NOT NULL THEN packet_loss_pct END) as overall_avg_loss
+                AVG(CASE WHEN status = 'COMPLETED' AND packet_loss_pct IS NOT NULL THEN packet_loss_pct END) as overall_avg_loss,
+                AVG(CASE WHEN status = 'COMPLETED' AND protocol = 'TCP' AND throughput_mbps IS NOT NULL THEN throughput_mbps END) as tcp_avg_throughput,
+                AVG(CASE WHEN status = 'COMPLETED' AND protocol = 'UDP' AND throughput_mbps IS NOT NULL THEN throughput_mbps END) as udp_avg_throughput,
+                AVG(CASE WHEN status = 'COMPLETED' AND protocol = 'TCP' AND avg_rtt_ms IS NOT NULL THEN avg_rtt_ms END) as tcp_avg_rtt,
+                AVG(CASE WHEN status = 'COMPLETED' AND protocol = 'UDP' AND avg_rtt_ms IS NOT NULL THEN avg_rtt_ms END) as udp_avg_rtt
             FROM experiments
         """;
 
@@ -392,6 +410,10 @@ public class DatabaseManager {
                 map.put("overallAvgRttMs", getNullableDouble(rs, "overall_avg_rtt"));
                 map.put("overallAvgThroughputMbps", getNullableDouble(rs, "overall_avg_throughput"));
                 map.put("overallAvgLossPct", getNullableDouble(rs, "overall_avg_loss"));
+                map.put("tcpAvgThroughputMbps", getNullableDouble(rs, "tcp_avg_throughput"));
+                map.put("udpAvgThroughputMbps", getNullableDouble(rs, "udp_avg_throughput"));
+                map.put("tcpAvgRttMs", getNullableDouble(rs, "tcp_avg_rtt"));
+                map.put("udpAvgRttMs", getNullableDouble(rs, "udp_avg_rtt"));
             }
         } catch (SQLException e) {
             logger.error("Error computing metrics summary: {}", e.getMessage(), e);

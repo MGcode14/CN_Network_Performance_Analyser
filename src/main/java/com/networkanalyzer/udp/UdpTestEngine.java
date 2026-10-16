@@ -113,6 +113,10 @@ public class UdpTestEngine {
                 exp.setStatus(TestStatus.FAILED);
                 exp.setErrorMessage(e.getMessage());
             }
+        } finally {
+            if (localUdpServer != null) {
+                localUdpServer.clearStats(testUuid.toString());
+            }
         }
 
         return finishExperiment(exp);
@@ -149,31 +153,44 @@ public class UdpTestEngine {
             bytesSent += config.getPayloadSize();
 
             try {
-                DatagramPacket recvPkt = new DatagramPacket(recvBuf, recvBuf.length);
-                socket.receive(recvPkt);
-                long respRecvNanos = System.nanoTime();
+                while (true) {
+                    DatagramPacket recvPkt = new DatagramPacket(recvBuf, recvBuf.length);
+                    socket.receive(recvPkt);
+                    long respRecvNanos = System.nanoTime();
 
-                NetworkPacket resp = NetworkPacket.fromByteArray(recvPkt.getData(), recvPkt.getOffset(), recvPkt.getLength());
-                if (resp.getMessageType() == MessageType.RTT_RESPONSE && resp.getSequenceNumber() == i) {
-                    packetsReceived++;
-                    bytesReceived += resp.getPayloadLength();
+                    NetworkPacket resp = NetworkPacket.fromByteArray(recvPkt.getData(), recvPkt.getOffset(), recvPkt.getLength());
+                    if (!testUuid.equals(resp.getTestId())) {
+                        continue;
+                    }
 
-                    double sampleRttMs = MetricsCalculator.calculateRttMs(reqSendNanos, respRecvNanos);
-                    rttSamples.add(sampleRttMs);
+                    if (resp.getMessageType() == MessageType.RTT_RESPONSE) {
+                        if (resp.getSequenceNumber() == i) {
+                            packetsReceived++;
+                            bytesReceived += resp.getPayloadLength();
 
-                    MeasurementSample sample = new MeasurementSample(
-                            exp.getId(),
-                            i,
-                            sampleRttMs,
-                            null,
-                            System.currentTimeMillis()
-                    );
-                    samples.add(sample);
+                            double sampleRttMs = MetricsCalculator.calculateRttMs(reqSendNanos, respRecvNanos);
+                            rttSamples.add(sampleRttMs);
 
-                    if (listener != null) {
-                        double progress = (i * 100.0) / count;
-                        listener.onProgress(exp.getTestId(), i, count, progress, String.format("Sample %d/%d UDP RTT: %.2f ms", i, count, sampleRttMs));
-                        listener.onSample(exp.getTestId(), sample);
+                            MeasurementSample sample = new MeasurementSample(
+                                    exp.getId(),
+                                    i,
+                                    sampleRttMs,
+                                    null,
+                                    System.currentTimeMillis()
+                            );
+                            samples.add(sample);
+
+                            if (listener != null) {
+                                double progress = (i * 100.0) / count;
+                                listener.onProgress(exp.getTestId(), i, count, progress, String.format("Sample %d/%d UDP RTT: %.2f ms", i, count, sampleRttMs));
+                                listener.onSample(exp.getTestId(), sample);
+                            }
+                            break;
+                        } else if (resp.getSequenceNumber() < i) {
+                            continue; // Drain delayed packet from earlier sequence
+                        } else {
+                            break;
+                        }
                     }
                 }
             } catch (SocketTimeoutException ste) {
@@ -290,26 +307,36 @@ public class UdpTestEngine {
         long serverBytesRecv = 0;
         boolean statsObtained = false;
 
-        // Try querying receiver via STATUS_QUERY datagram
+        // Try querying receiver via STATUS_QUERY datagram with retry
         try {
-            NetworkPacket query = NetworkPacket.create(MessageType.STATUS_QUERY, testUuid, packetCount + 1, System.nanoTime(), new byte[0]);
-            byte[] queryBytes = query.toByteArray();
-            socket.send(new DatagramPacket(queryBytes, queryBytes.length, targetAddr, targetPort));
+            int originalTimeout = socket.getSoTimeout();
+            socket.setSoTimeout(400); // 400ms timeout per query attempt
+            for (int attempt = 0; attempt < 3 && !statsObtained; attempt++) {
+                try {
+                    NetworkPacket query = NetworkPacket.create(MessageType.STATUS_QUERY, testUuid, packetCount + 1, System.nanoTime(), new byte[0]);
+                    byte[] queryBytes = query.toByteArray();
+                    socket.send(new DatagramPacket(queryBytes, queryBytes.length, targetAddr, targetPort));
 
-            byte[] replyBuf = new byte[1024];
-            DatagramPacket replyPkt = new DatagramPacket(replyBuf, replyBuf.length);
-            socket.receive(replyPkt);
+                    byte[] replyBuf = new byte[1024];
+                    DatagramPacket replyPkt = new DatagramPacket(replyBuf, replyBuf.length);
+                    socket.receive(replyPkt);
 
-            NetworkPacket reply = NetworkPacket.fromByteArray(replyPkt.getData(), replyPkt.getOffset(), replyPkt.getLength());
-            if (reply.getMessageType() == MessageType.STATUS_REPLY && reply.getPayloadLength() >= 16) {
-                ByteBuffer buf = ByteBuffer.wrap(reply.getPayload());
-                long totalRecv = buf.getLong();
-                long uniqueRecv = buf.getLong();
-                serverPacketsRecv = uniqueRecv;
-                serverBytesRecv = uniqueRecv * payloadSize;
-                statsObtained = true;
-                logger.info("UDP Receiver reported: totalRecv={}, uniqueRecv={}", totalRecv, uniqueRecv);
+                    NetworkPacket reply = NetworkPacket.fromByteArray(replyPkt.getData(), replyPkt.getOffset(), replyPkt.getLength());
+                    if (reply.getMessageType() == MessageType.STATUS_REPLY && testUuid.equals(reply.getTestId()) && reply.getPayloadLength() >= 16) {
+                        ByteBuffer buf = ByteBuffer.wrap(reply.getPayload());
+                        long totalRecv = buf.getLong();
+                        long uniqueRecv = buf.getLong();
+                        serverPacketsRecv = uniqueRecv;
+                        serverBytesRecv = uniqueRecv * payloadSize;
+                        statsObtained = true;
+                        logger.info("UDP Receiver reported: totalRecv={}, uniqueRecv={}", totalRecv, uniqueRecv);
+                        break;
+                    }
+                } catch (SocketTimeoutException ste) {
+                    logger.debug("STATUS_QUERY timeout on attempt {}", attempt + 1);
+                }
             }
+            socket.setSoTimeout(originalTimeout);
         } catch (Exception e) {
             logger.debug("Could not obtain UDP receiver stats via datagram query: {}", e.getMessage());
         }

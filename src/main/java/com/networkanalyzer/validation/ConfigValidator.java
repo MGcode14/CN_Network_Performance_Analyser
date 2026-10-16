@@ -3,12 +3,13 @@ package com.networkanalyzer.validation;
 import com.networkanalyzer.exception.ValidationException;
 import com.networkanalyzer.model.Protocol;
 import com.networkanalyzer.model.TestConfig;
+import com.networkanalyzer.protocol.NetworkPacket;
 
 public class ConfigValidator {
     public static final int MIN_PORT = 1;
     public static final int MAX_PORT = 65535;
     public static final int MAX_TCP_PAYLOAD = 10 * 1024 * 1024; // 10MB
-    public static final int MAX_UDP_PAYLOAD = 65507; // Max UDP payload over IPv4
+    public static final int MAX_UDP_PAYLOAD = 65507 - NetworkPacket.HEADER_SIZE; // Max UDP payload over IPv4 with protocol header (65,463 B)
     public static final int MAX_PACKET_COUNT = 500000;
     public static final int MAX_SENDING_RATE_PPS = 100000;
     public static final int MIN_TIMEOUT_MS = 100;

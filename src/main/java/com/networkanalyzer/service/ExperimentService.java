@@ -4,6 +4,7 @@ import com.networkanalyzer.analyzer.ComparisonEngine;
 import com.networkanalyzer.client.TestProgressListener;
 import com.networkanalyzer.database.DatabaseManager;
 import com.networkanalyzer.exception.ValidationException;
+import com.networkanalyzer.metrics.MetricsCalculator;
 import com.networkanalyzer.model.*;
 import com.networkanalyzer.server.NetworkServerManager;
 import com.networkanalyzer.tcp.TcpTestEngine;
@@ -141,14 +142,49 @@ public class ExperimentService {
         Experiment tcpExp = tcpFirst ? exp1 : exp2;
         Experiment udpExp = tcpFirst ? exp2 : exp1;
 
-        placeholder.setStatus(TestStatus.COMPLETED);
+        boolean tcpFailed = tcpExp.getStatus() == TestStatus.FAILED || tcpExp.getStatus() == TestStatus.CANCELLED;
+        boolean udpFailed = udpExp.getStatus() == TestStatus.FAILED || udpExp.getStatus() == TestStatus.CANCELLED;
+
+        if (tcpFailed && udpFailed) {
+            placeholder.setStatus(TestStatus.FAILED);
+            placeholder.setErrorMessage("Both TCP and UDP tests failed: TCP (" + tcpExp.getErrorMessage() + "), UDP (" + udpExp.getErrorMessage() + ")");
+        } else if (tcpFailed) {
+            placeholder.setStatus(TestStatus.FAILED);
+            placeholder.setErrorMessage("TCP test failed: " + tcpExp.getErrorMessage());
+        } else if (udpFailed) {
+            placeholder.setStatus(TestStatus.FAILED);
+            placeholder.setErrorMessage("UDP test failed: " + udpExp.getErrorMessage());
+        } else {
+            placeholder.setStatus(TestStatus.COMPLETED);
+            placeholder.setErrorMessage(null); // Keep error message clean for successful runs
+        }
+
         placeholder.setEndTimeMs(System.currentTimeMillis());
         placeholder.setDurationMs((double) (placeholder.getEndTimeMs() - placeholder.getStartTimeMs()));
-        placeholder.setPacketsSent((tcpExp.getPacketsSent() != null ? tcpExp.getPacketsSent() : 0) + (udpExp.getPacketsSent() != null ? udpExp.getPacketsSent() : 0));
-        placeholder.setPacketsReceived((tcpExp.getPacketsReceived() != null ? tcpExp.getPacketsReceived() : 0) + (udpExp.getPacketsReceived() != null ? udpExp.getPacketsReceived() : 0));
-        placeholder.setThroughputMbps(tcpExp.getThroughputMbps());
-        placeholder.setAvgRttMs(tcpExp.getAvgRttMs());
-        placeholder.setErrorMessage(String.format("Comparison Completed. TCP ID: %s, UDP ID: %s", tcpExp.getId(), udpExp.getId()));
+
+        long sentTotal = (tcpExp.getPacketsSent() != null ? tcpExp.getPacketsSent() : 0) + (udpExp.getPacketsSent() != null ? udpExp.getPacketsSent() : 0);
+        long recvTotal = (tcpExp.getPacketsReceived() != null ? tcpExp.getPacketsReceived() : 0) + (udpExp.getPacketsReceived() != null ? udpExp.getPacketsReceived() : 0);
+        placeholder.setPacketsSent(sentTotal);
+        placeholder.setPacketsReceived(recvTotal);
+        placeholder.setPacketLossPct(MetricsCalculator.calculatePacketLossPct(sentTotal, recvTotal));
+        placeholder.setDeliveryRatioPct(MetricsCalculator.calculatePacketDeliveryRatioPct(sentTotal, recvTotal));
+
+        if (tcpExp.getThroughputMbps() != null && udpExp.getThroughputMbps() != null) {
+            placeholder.setThroughputMbps(MetricsCalculator.round((tcpExp.getThroughputMbps() + udpExp.getThroughputMbps()) / 2.0, 2));
+        } else {
+            placeholder.setThroughputMbps(tcpExp.getThroughputMbps() != null ? tcpExp.getThroughputMbps() : udpExp.getThroughputMbps());
+        }
+
+        if (tcpExp.getAvgRttMs() != null && udpExp.getAvgRttMs() != null) {
+            placeholder.setAvgRttMs(MetricsCalculator.round((tcpExp.getAvgRttMs() + udpExp.getAvgRttMs()) / 2.0, 2));
+        } else {
+            placeholder.setAvgRttMs(tcpExp.getAvgRttMs() != null ? tcpExp.getAvgRttMs() : udpExp.getAvgRttMs());
+        }
+
+        List<MeasurementSample> combinedSamples = new ArrayList<>();
+        if (tcpExp.getSamples() != null) combinedSamples.addAll(tcpExp.getSamples());
+        if (udpExp.getSamples() != null) combinedSamples.addAll(udpExp.getSamples());
+        placeholder.setSamples(combinedSamples);
 
         databaseManager.saveExperiment(placeholder);
         databaseManager.logServerEvent("TEST_COMPLETE", "Finished dual-protocol comparison experiment", "TCP: " + tcpExp.getId() + ", UDP: " + udpExp.getId());
